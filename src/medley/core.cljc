@@ -42,7 +42,7 @@
      :default (instance? clojure.lang.IEditableCollection coll)))
 
 (defn- assoc-some-transient! [m k v]
-  (if (nil? v) m (assoc! m k v)))
+       (if (nil? v) m (assoc! m k v)))
 
 (defn assoc-some
   "Associates a key k, with a value v in a map m, if and only if v is not nil."
@@ -103,6 +103,7 @@
   "Create a map entry for a key and value pair."
   [k v]
   #?(:cljs    (cljs.core/MapEntry. k v nil)
+     :rust    [k v]
      :default (clojure.lang.MapEntry. k v)))
 
 (defn map-kv
@@ -185,8 +186,10 @@
 (defn queue
   "Creates an empty persistent queue, or one populated with a collection."
   ([] #?(:cljs    cljs.core/PersistentQueue.EMPTY
+         :rust    (clojure.core/queue)
          :default clojure.lang.PersistentQueue/EMPTY))
-  ([coll] (into (queue) coll)))
+  ([coll] #?(:rust (clojure.core/queue coll)
+             :default (into (queue) coll))))
 
 (defn queue?
   "Returns true if x implements clojure.lang.PersistentQueue."
@@ -457,29 +460,31 @@
    (fn [rf]
      (let [part #?(:clj  (java.util.ArrayList.)
                    :cljr (System.Collections.ArrayList.)
-                   :cljs (array-list))
+                   :cljs (array-list)
+                   :rust (array-list))
            prev (volatile! ::none)]
        (fn
          ([] (rf))
          ([result]
           (rf (if #?(:cljr    (zero? (.-Count part))
+                     :rust    (zero? (array-list-length part))
                      :default (.isEmpty part))
                 result
-                (let [v (vec (#?(:cljr .ToArray :default .toArray) part))]
-                  (#?(:cljr .Clear :default .clear) part)
+                (let [v (vec (#?(:cljr .ToArray :rust array-list-to-array :default .toArray) part))]
+                  (#?(:cljr .Clear :rust array-list-clear :default .clear) part)
                   (unreduced (rf result v))))))
          ([result input]
           (let [p @prev]
             (vreset! prev input)
             (if (or (#?(:cljs keyword-identical? :default identical?) p ::none)
                     (not (pred p input)))
-              (do (#?(:cljr .Add :default .add) part input)
+              (do (#?(:cljr .Add :rust array-list-push :default .add) part input)
                   result)
-              (let [v (vec (#?(:cljr .ToArray :default .toArray) part))]
-                (#?(:cljr .Clear :default .clear) part)
+              (let [v (vec (#?(:cljr .ToArray :rust array-list-to-array :default .toArray) part))]
+                (#?(:cljr .Clear :rust array-list-clear :default .clear) part)
                 (let [ret (rf result v)]
                   (when-not (reduced? ret)
-                    (#?(:cljr .Add :default .add) part input))
+                    (#?(:cljr .Add :rust array-list-push :default .add) part input))
                   ret)))))))))
   ([pred coll]
    (lazy-seq
@@ -524,21 +529,25 @@
    (fn [rf]
      (let [part #?(:clj  (java.util.ArrayList. n)
                    :cljr (System.Collections.ArrayList.)
-                   :cljs (array))]
+                   :cljs (array)
+                   :rust (array-list))]
        (fn
          ([] (rf))
          ([result] (rf result))
          ([result x]
-          #?(:clj (.add part x) :cljr (.Add part x) :cljs (.push part x))
+          #?(:clj (.add part x) :cljr (.Add part x) :cljs (.push part x) :rust (array-list-push part x))
           (when (< n #?(:clj  (.size part)
                         :cljr (.Count part)
-                        :cljs (.-length part)))
+                        :cljs (.-length part)
+                        :rust (array-list-length part)))
             #?(:clj  (.remove part 0)
                :cljr (.RemoveAt part 0)
-               :cljs (.shift part)))
+               :cljs (.shift part)
+               :rust (array-list-remove part 0)))
           (rf result (vec #?(:clj  (.toArray part)
                              :cljr (.ToArray part)
-                             :cljs (.slice part)))))))))
+                             :cljs (.slice part)
+                             :rust (array-list-to-array part)))))))))
   ([n coll]
    (letfn [(part [part-n coll]
              (let [run (doall (take part-n coll))]
@@ -684,9 +693,11 @@
 (defn uuid?
   "Returns true if the value is a UUID."
   [x]
-  (instance? #?(:clj  java.util.UUID
-                :cljr System.Guid
-                :cljs cljs.core/UUID) x))
+  #?(:rust (clojure.core/uuid? x)
+     :default
+     (instance? #?(:clj  java.util.UUID
+                   :cljr System.Guid
+                   :cljs cljs.core/UUID) x)))
 
 (defn uuid
   "Returns a UUID generated from the supplied string. Same as `cljs.core/uuid`
@@ -694,7 +705,8 @@
   [s]
   #?(:clj  (java.util.UUID/fromString s)
      :cljr (System.Guid. s)
-     :cljs (cljs.core/uuid s)))
+     :cljs (cljs.core/uuid s)
+     :rust (clojure.core/parse-uuid s)))
 
 (defn random-uuid
   "Generates a new random UUID. Same as `cljs.core/random-uuid` except it works
@@ -702,7 +714,8 @@
   []
   #?(:clj  (java.util.UUID/randomUUID)
      :cljr (System.Guid/NewGuid)
-     :cljs (cljs.core/random-uuid)))
+     :cljs (cljs.core/random-uuid)
+     :rust (clojure.core/random-uuid)))
 
 (defn regexp?
   "Returns true if the value is a regular expression."

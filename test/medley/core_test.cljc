@@ -173,6 +173,7 @@
 
 (deftest test-queue?
   #?(:cljs    (is (m/queue? cljs.core.PersistentQueue.EMPTY))
+     :rust    (is (m/queue? ()))
      :default (is (m/queue? clojure.lang.PersistentQueue/EMPTY)))
   (is (not (m/queue? []))))
 
@@ -518,7 +519,8 @@
   (let [x (m/uuid "d1a4adfa-d9cf-4aa5-9f05-a15365d1bfa6")]
     (is (instance? #?(:clj  java.util.UUID
                       :cljr System.Guid
-                      :cljs cljs.core.UUID) x))
+                      :cljs cljs.core.UUID
+                      :rust java.util.UUID) x))
     (is (= x #uuid "d1a4adfa-d9cf-4aa5-9f05-a15365d1bfa6"))))
 
 (deftest test-random-uuid
@@ -526,10 +528,12 @@
         y (m/random-uuid)]
     (is (instance? #?(:clj  java.util.UUID
                       :cljr System.Guid
-                      :cljs cljs.core.UUID) x))
+                      :cljs cljs.core.UUID
+                      :rust java.util.UUID) x))
     (is (instance? #?(:clj  java.util.UUID
                       :cljr System.Guid
-                      :cljs cljs.core.UUID) y))
+                      :cljs cljs.core.UUID
+                      :rust java.util.UUID) y))
     (is (not= x y))))
 
 (deftest test-regexp?
