@@ -679,7 +679,8 @@
   [ex]
   #?(:clj  (when (instance? Throwable ex) (.getMessage ^Throwable ex))
      :cljr (when (instance? Exception ex) (.-Message ^Exception ex))
-     :cljs (cljs.core/ex-message ex)))
+     :cljs (cljs.core/ex-message ex)
+     :rust (clojure.core/ex-message ex)))
 
 (defn ex-cause
   "Returns the cause attached to the given ExceptionInfo/Throwable object. For
@@ -688,7 +689,8 @@
   [ex]
   #?(:clj  (when (instance? Throwable ex) (.getCause ^Throwable ex))
      :cljr (when (instance? Exception ex) (.-InnerException ^Exception ex))
-     :cljs (cljs.core/ex-cause ex)))
+     :cljs (cljs.core/ex-cause ex)
+     :rust (clojure.core/ex-cause ex)))
 
 (defn uuid?
   "Returns true if the value is a UUID."
@@ -723,7 +725,8 @@
   [x]
   (instance? #?(:clj  java.util.regex.Pattern
                 :cljr System.Text.RegularExpressions.Regex
-                :cljs js/RegExp) x))
+                :cljs js/RegExp
+                :rust java.util.regex.Pattern) x))
 
 (defn index-of
   "Returns the index of the first occurrence of the item in the sequential
